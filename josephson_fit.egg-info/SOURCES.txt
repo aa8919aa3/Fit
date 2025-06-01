@@ -1,0 +1,15 @@
+LICENSE
+README.md
+setup.py
+josephson_fit/__init__.py
+josephson_fit/cli.py
+josephson_fit/fitter.py
+josephson_fit/models.py
+josephson_fit/utils.py
+josephson_fit.egg-info/PKG-INFO
+josephson_fit.egg-info/SOURCES.txt
+josephson_fit.egg-info/dependency_links.txt
+josephson_fit.egg-info/entry_points.txt
+josephson_fit.egg-info/requires.txt
+josephson_fit.egg-info/top_level.txt
+tests/test_josephson_fit.py

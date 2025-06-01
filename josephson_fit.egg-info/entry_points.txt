@@ -1,0 +1,2 @@
+[console_scripts]
+josephson-fit = josephson_fit.cli:main

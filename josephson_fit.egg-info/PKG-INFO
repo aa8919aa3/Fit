@@ -1,3 +1,46 @@
+Metadata-Version: 2.4
+Name: josephson-fit
+Version: 1.0.0
+Summary: Specialized Python toolkit for fitting Josephson junction current-phase relationships
+Home-page: https://github.com/username/josephson-fit
+Author: Research Team
+Author-email: research@example.com
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.19.0
+Requires-Dist: matplotlib>=3.3.0
+Requires-Dist: scipy>=1.5.0
+Requires-Dist: astropy>=4.0.0
+Requires-Dist: lmfit>=1.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
 # Josephson Junction Current-Phase Relationship Fitting with Lomb-Scargle
 
 A specialized Python toolkit for fitting Josephson junction current-phase relationships with background polynomial terms using automatic frequency detection via Lomb-Scargle periodogram and parameter optimization with lmfit.
