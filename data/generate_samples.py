@@ -4,7 +4,7 @@ Generate sample data files for testing and demonstration.
 """
 
 import numpy as np
-from josephson_fit import generate_synthetic_data
+from josephson_fit import generate_synthetic_data, Model1, Model2, Model3
 
 
 def create_sample_datasets():
@@ -16,8 +16,8 @@ def create_sample_datasets():
         'Ic': 2.0, 'T': 0.3, 'f': 1.0, 'd': 0.0, 'phi0': 0.0,
         'k': 0.01, 'r': 0.0, 'C': 0.0
     }
-    current1 = generate_synthetic_data(phi_ext1, model_type=1, 
-                                     params=params1, noise_level=0.015)
+    current1, _ = generate_synthetic_data(phi_ext1, Model1().function, 
+                                        params1, noise_level=0.015)
     
     data1 = np.column_stack((phi_ext1, current1))
     np.savetxt('/workspaces/Fit/data/sample_model1.txt', data1,
@@ -30,8 +30,8 @@ def create_sample_datasets():
         'Ic': 2.8, 'T': 0.45, 'f': 1.3, 'd': 0.1, 'phi0': 0.25,
         'k': 0.03, 'r': -0.05, 'C': 0.15
     }
-    current2 = generate_synthetic_data(phi_ext2, model_type=2,
-                                     params=params2, noise_level=0.02)
+    current2, _ = generate_synthetic_data(phi_ext2, Model2().function,
+                                        params2, noise_level=0.02)
     
     data2 = np.column_stack((phi_ext2, current2))
     np.savetxt('/workspaces/Fit/data/sample_model2.txt', data2,
@@ -44,8 +44,8 @@ def create_sample_datasets():
         'Ic': 3.5, 'T': 0.6, 'f': 1.5, 'd': -0.2, 'phi0': 0.4,
         'k': 0.04, 'r': 0.02, 'C': -0.1
     }
-    current3 = generate_synthetic_data(phi_ext3, model_type=3,
-                                     params=params3, noise_level=0.025)
+    current3, _ = generate_synthetic_data(phi_ext3, Model3().function,
+                                        params3, noise_level=0.025)
     
     data3 = np.column_stack((phi_ext3, current3))
     np.savetxt('/workspaces/Fit/data/sample_model3.txt', data3,
@@ -58,8 +58,8 @@ def create_sample_datasets():
         'Ic': 1.8, 'T': 0.25, 'f': 4.0, 'd': 0.0, 'phi0': 0.0,
         'k': 0.005, 'r': 0.0, 'C': 0.0
     }
-    current4 = generate_synthetic_data(phi_ext4, model_type=1,
-                                     params=params4, noise_level=0.01)
+    current4, _ = generate_synthetic_data(phi_ext4, Model1().function,
+                                        params4, noise_level=0.01)
     
     data4 = np.column_stack((phi_ext4, current4))
     np.savetxt('/workspaces/Fit/data/high_frequency.txt', data4,
@@ -72,8 +72,8 @@ def create_sample_datasets():
         'Ic': 2.2, 'T': 0.35, 'f': 1.1, 'd': 0.05, 'phi0': 0.15,
         'k': 0.02, 'r': -0.01, 'C': 0.05
     }
-    current5 = generate_synthetic_data(phi_ext5, model_type=2,
-                                     params=params5, noise_level=0.05)
+    current5, _ = generate_synthetic_data(phi_ext5, Model2().function,
+                                        params5, noise_level=0.05)
     
     data5 = np.column_stack((phi_ext5, current5))
     np.savetxt('/workspaces/Fit/data/noisy_data.txt', data5,

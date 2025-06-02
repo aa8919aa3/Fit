@@ -8,7 +8,11 @@ junction models and select the optimal one based on information criteria.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from josephson_fit import JosephsonFitter, generate_synthetic_data
+from josephson_fit import (
+    JosephsonTripleFitter, 
+    generate_synthetic_data,
+    Model1, Model2, Model3
+)
 
 
 def generate_test_datasets():
@@ -22,8 +26,8 @@ def generate_test_datasets():
         'Ic': 2.0, 'T': 0.3, 'f': 1.0, 'd': 0.0, 'phi0': 0.0,
         'k': 0.02, 'r': 0.0, 'C': 0.0
     }
-    current1 = generate_synthetic_data(phi_ext, model_type=1, 
-                                     params=params1, noise_level=0.02)
+    current1 = generate_synthetic_data(phi_ext, Model1().function, 
+                                     params1, noise_level=0.02)
     datasets['Model 1 Data'] = (phi_ext, current1, params1, 1)
     
     # Dataset 2: Model 2 with significant second-order effects
@@ -31,8 +35,8 @@ def generate_test_datasets():
         'Ic': 2.5, 'T': 0.4, 'f': 1.2, 'd': 0.1, 'phi0': 0.3,
         'k': 0.03, 'r': -0.05, 'C': 0.1
     }
-    current2 = generate_synthetic_data(phi_ext, model_type=2, 
-                                     params=params2, noise_level=0.02)
+    current2 = generate_synthetic_data(phi_ext, Model2().function, 
+                                     params2, noise_level=0.02)
     datasets['Model 2 Data'] = (phi_ext, current2, params2, 2)
     
     # Dataset 3: Model 3 with third-order harmonics
@@ -40,14 +44,14 @@ def generate_test_datasets():
         'Ic': 3.0, 'T': 0.5, 'f': 1.4, 'd': -0.1, 'phi0': 0.4,
         'k': 0.04, 'r': 0.02, 'C': -0.05
     }
-    current3 = generate_synthetic_data(phi_ext, model_type=3, 
-                                     params=params3, noise_level=0.025)
+    current3 = generate_synthetic_data(phi_ext, Model3().function, 
+                                     params3, noise_level=0.025)
     datasets['Model 3 Data'] = (phi_ext, current3, params3, 3)
     
     return datasets
 
 
-def analyze_dataset(name, phi_ext, current, true_params, true_model, fitter):
+def analyze_dataset(name, phi_ext, current, true_params, true_model):
     """Analyze a single dataset with all three models."""
     print(f"\nAnalyzing {name}")
     print("=" * (len(name) + 10))
@@ -57,19 +61,22 @@ def analyze_dataset(name, phi_ext, current, true_params, true_model, fitter):
     for param, value in true_params.items():
         print(f"  {param}: {value}")
     
+    # Create fitter for this dataset
+    fitter = JosephsonTripleFitter(phi_ext, current)
+    
     # Fit all models
-    results = fitter.fit_all_models(phi_ext, current)
-    valid_results = [r for r in results if r is not None]
+    results = fitter.fit_all_models()
+    valid_results = [r for r in results.values() if r is not None]
     
     if not valid_results:
         print("No successful fits!")
         return None
     
     # Model selection
-    best_model = fitter.compare_models(results)
+    best_model = fitter.select_best_model()
     
     # Calculate delta AIC and BIC
-    print(f"\nModel Selection Metrics:")
+    print("\nModel Selection Metrics:")
     print("-" * 30)
     min_aic = min(r.aic for r in valid_results)
     min_bic = min(r.bic for r in valid_results)
@@ -77,17 +84,18 @@ def analyze_dataset(name, phi_ext, current, true_params, true_model, fitter):
     print(f"{'Model':<15} {'AIC':<10} {'ΔAIC':<10} {'BIC':<10} {'ΔBIC':<10} {'R²':<10}")
     print("-" * 70)
     
-    for i, result in enumerate(valid_results):
-        model_num = i + 1
-        delta_aic = result.aic - min_aic
-        delta_bic = result.bic - min_bic
-        
-        marker = " *" if result == best_model else ""
-        print(f"Model {model_num:<9} {result.aic:<10.2f} {delta_aic:<10.2f} "
-              f"{result.bic:<10.2f} {delta_bic:<10.2f} {result.r_squared:<10.4f}{marker}")
+    for i, (model_type, result) in enumerate(results.items()):
+        if result is not None:
+            model_num = int(model_type[-1])  # Extract number from 'model1', 'model2', etc.
+            delta_aic = result.aic - min_aic
+            delta_bic = result.bic - min_bic
+            
+            marker = " *" if result == best_model else ""
+            print(f"Model {model_num:<9} {result.aic:<10.2f} {delta_aic:<10.2f} "
+                  f"{result.bic:<10.2f} {delta_bic:<10.2f} {result.r_squared:<10.4f}{marker}")
     
     # Check if correct model was selected
-    best_model_num = valid_results.index(best_model) + 1
+    best_model_num = int(best_model.model_type[-1])  # Extract from 'model1', etc.
     correct_selection = (best_model_num == true_model)
     
     print(f"\nSelected Model: {best_model_num}")
@@ -133,7 +141,7 @@ def plot_model_comparison_summary(analysis_results):
     ax2 = axes[0, 1]
     for i, result in enumerate(analysis_results):
         results = result['results']
-        valid_results = [r for r in results if r is not None]
+        valid_results = [r for r in results.values() if r is not None]
         
         if valid_results:
             aics = [r.aic for r in valid_results]
@@ -160,7 +168,7 @@ def plot_model_comparison_summary(analysis_results):
         results = result['results']
         r_squareds = []
         
-        for j, res in enumerate(results):
+        for j, (model_type, res) in enumerate(results.items()):
             if res is not None:
                 r_squareds.append(res.r_squared)
             else:
@@ -178,13 +186,9 @@ def plot_model_comparison_summary(analysis_results):
     ax3.legend()
     ax3.grid(True, alpha=0.3, axis='y')
     
-    # Plot 4: Parameter recovery (example for Ic)
+    # Plot 4: Parameter recovery (simplified placeholder)
     ax4 = axes[1, 1]
     
-    for result in analysis_results:
-        true_ic = [p for p in result['results'] if p is not None][0]  # Get true Ic somehow
-        # This is simplified - in practice you'd want to compare fitted vs true parameters
-        
     ax4.text(0.5, 0.5, 'Parameter Recovery\nAnalysis\n(Implementation needed)', 
             ha='center', va='center', transform=ax4.transAxes,
             fontsize=12, bbox=dict(boxstyle="round", facecolor='wheat'))
@@ -203,15 +207,11 @@ def main():
     print("Generating test datasets...")
     datasets = generate_test_datasets()
     
-    # Create fitter
-    fitter = JosephsonFitter(verbose=False)  # Less verbose for this example
-    
     # Analyze each dataset
     analysis_results = []
     
     for name, (phi_ext, current, true_params, true_model) in datasets.items():
-        result = analyze_dataset(name, phi_ext, current, true_params, 
-                               true_model, fitter)
+        result = analyze_dataset(name, phi_ext, current, true_params, true_model)
         if result:
             analysis_results.append(result)
     
@@ -234,12 +234,21 @@ def main():
     
     # Plot individual fits for each dataset
     for result in analysis_results:
-        fig = fitter.plot_fit_comparison(result['phi_ext'], result['current'], 
-                                       result['results'])
-        fig.suptitle(f"{result['name']} - Model Comparison", fontsize=16)
+        # Create fitter for plotting and recreate the fits
+        fitter = JosephsonTripleFitter(result['phi_ext'], result['current'])
+        fitter_results = fitter.fit_all_models()
+        
+        # Convert dict of results to list for visualization function
+        results_list = [res for res in fitter_results.values() if res is not None]
+        
+        # Use visualization module for plotting
+        from josephson_fit.visualization import plot_model_comparison
+        if results_list:
+            fig = plot_model_comparison(results_list)
+            fig.suptitle(f"{result['name']} - Model Comparison", fontsize=16)
     
     # Plot summary
-    summary_fig = plot_model_comparison_summary(analysis_results)
+    plot_model_comparison_summary(analysis_results)
     
     plt.show()
     

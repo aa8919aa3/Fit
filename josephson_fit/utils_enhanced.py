@@ -12,8 +12,10 @@ This module provides comprehensive utility functions for the triple model system
 import numpy as np
 from scipy import signal, stats
 from astropy.timeseries import LombScargle
-from typing import Tuple, Optional, Dict, Any, List
-from lmfit import Parameters
+import matplotlib.pyplot as plt
+from typing import Tuple, Optional, Dict, Any, List, Union
+from lmfit import Parameters, minimize, fit_report
+import warnings
 
 
 def lombscargle_frequency_detection(phi_ext: np.ndarray, 
@@ -54,9 +56,8 @@ def lombscargle_frequency_detection(phi_ext: np.ndarray,
     # Determine frequency range if not provided
     if frequency_range is None:
         phi_range = np.ptp(phi_ext)
-        min_freq = 0.1 / phi_range  # Minimum frequency based on data range
-        # Use more conservative frequency range for better detection
-        max_freq = min(10.0 / phi_range, 10.0)  # Base on data range, cap at 10
+        min_freq = 0.05 / phi_range  # Allow for lower frequencies
+        max_freq = 10.0 / np.median(np.diff(np.sort(phi_ext)))  # Extended range
     else:
         min_freq, max_freq = frequency_range
     
@@ -183,15 +184,23 @@ def estimate_initial_parameters(phi_ext: np.ndarray,
         C_estimate = current_mean
     
     # Add parameters with physical bounds
-    params.add('Ic', value=Ic_estimate, min=1e-12, max=1e-2)
-    params.add('T', value=T_estimate, min=0.0, max=0.99)
-    params.add('f', value=f_estimate, min=0.01, max=10.0)
-    params.add('d', value=d_estimate, min=phi_mid - phi_range, max=phi_mid + phi_range)
-    params.add('phi0', value=phi0_estimate, min=-np.pi, max=np.pi)
-    params.add('k', value=k_estimate, min=-1.0, max=1.0)
-    params.add('r', value=r_estimate, min=-10.0, max=10.0)
-    params.add('C', value=C_estimate, min=float(current_mean - 5*current_std), 
-              max=float(current_mean + 5*current_std))
+    params.add('Ic', value=Ic_estimate, min=1e-12, max=1e-2, 
+              help='Critical current (A)')
+    params.add('T', value=T_estimate, min=0.0, max=0.99, 
+              help='Junction transparency (0-1)')
+    params.add('f', value=f_estimate, min=0.01, max=10.0, 
+              help='Conversion factor (Φ_ext to phase scaling)')
+    params.add('d', value=d_estimate, min=phi_mid - phi_range, max=phi_mid + phi_range, 
+              help='Horizontal shift (zero-point offset)')
+    params.add('phi0', value=phi0_estimate, min=-np.pi, max=np.pi, 
+              help='Intrinsic phase offset (radians)')
+    params.add('k', value=k_estimate, min=-1.0, max=1.0, 
+              help='Quadratic background coefficient')
+    params.add('r', value=r_estimate, min=-10.0, max=10.0, 
+              help='Linear background coefficient')
+    params.add('C', value=C_estimate, min=current_mean - 5*current_std, 
+              max=current_mean + 5*current_std,
+              help='Overall current offset')
     
     return params
 
@@ -530,7 +539,7 @@ def validate_fit_quality(result, phi_ext: np.ndarray, current: np.ndarray,
                     'p_value': bartlett_p,
                     'homoscedastic': bartlett_p > 0.05
                 }
-            except Exception:
+            except:
                 validation['homoscedasticity_test'] = {'error': 'Could not perform test'}
     
     # Overall quality assessment
@@ -631,6 +640,7 @@ def interpret_physical_parameters(params: Dict[str, float],
     # Josephson energy (assuming temperature ~mK range)
     h_bar = 1.055e-34  # J⋅s
     e = 1.602e-19      # C
+    phi_0 = h_bar / (2 * e)  # Flux quantum
     
     if Ic > 0:
         E_J = (h_bar * Ic) / (2 * e)  # Josephson energy

@@ -8,18 +8,16 @@ and detailed statistical evaluation.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from josephson_fit import JosephsonFitter, generate_synthetic_data
+from josephson_fit import JosephsonTripleFitter, generate_synthetic_data, Model2
 from scipy import stats
 
 
-def bootstrap_analysis(fitter, phi_ext, current, n_bootstrap=100):
+def bootstrap_analysis(phi_ext, current, n_bootstrap=100):
     """
     Perform bootstrap analysis to estimate parameter uncertainties.
     
     Parameters:
     -----------
-    fitter : JosephsonFitter
-        Fitter instance
     phi_ext : np.ndarray
         External parameter values
     current : np.ndarray
@@ -47,22 +45,27 @@ def bootstrap_analysis(fitter, phi_ext, current, n_bootstrap=100):
         current_boot = current[indices]
         
         try:
-            # Fit best model (assume Model 2 for this example)
-            result = fitter.fit_model2(phi_boot, current_boot)
+            # Create fitter for this bootstrap sample
+            fitter = JosephsonTripleFitter(phi_boot, current_boot)
             
-            # Store parameters
-            for param_name, value in result.params.items():
-                bootstrap_params[param_name].append(value)
+            # Fit model 2 (assume this is the best model)
+            result = fitter.fit_model('model2')
+            
+            if result is not None:
+                # Store parameters
+                for param_name in bootstrap_params.keys():
+                    if param_name in result.params:
+                        bootstrap_params[param_name].append(result.params[param_name])
                 
         except Exception:
             # Skip failed fits
             continue
     
     # Calculate statistics
-    bootstrap_stats = {}
+    bootstrap_statistics = {}
     for param_name, values in bootstrap_params.items():
         if values:
-            bootstrap_stats[param_name] = {
+            bootstrap_statistics[param_name] = {
                 'mean': np.mean(values),
                 'std': np.std(values),
                 'median': np.median(values),
@@ -71,31 +74,31 @@ def bootstrap_analysis(fitter, phi_ext, current, n_bootstrap=100):
                 'values': np.array(values)
             }
     
-    return bootstrap_stats
+    return bootstrap_statistics
 
 
-def plot_parameter_distributions(bootstrap_stats, true_params=None):
+def plot_parameter_distributions(bootstrap_statistics, true_params=None):
     """Plot parameter distributions from bootstrap analysis."""
-    n_params = len(bootstrap_stats)
+    n_params = len(bootstrap_statistics)
     n_cols = 3
     n_rows = (n_params + n_cols - 1) // n_cols
     
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5*n_rows))
     axes = axes.flatten() if n_params > 1 else [axes]
     
-    for i, (param_name, stats) in enumerate(bootstrap_stats.items()):
+    for i, (param_name, param_stats) in enumerate(bootstrap_statistics.items()):
         ax = axes[i]
         
         # Histogram
-        ax.hist(stats['values'], bins=30, alpha=0.7, density=True, 
+        ax.hist(param_stats['values'], bins=30, alpha=0.7, density=True, 
                color='skyblue', edgecolor='black')
         
         # Statistics lines
-        ax.axvline(stats['mean'], color='red', linestyle='-', linewidth=2,
-                  label=f"Mean: {stats['mean']:.4f}")
-        ax.axvline(stats['ci_lower'], color='orange', linestyle='--',
-                  label=f"95% CI")
-        ax.axvline(stats['ci_upper'], color='orange', linestyle='--')
+        ax.axvline(param_stats['mean'], color='red', linestyle='-', linewidth=2,
+                  label=f"Mean: {param_stats['mean']:.4f}")
+        ax.axvline(param_stats['ci_lower'], color='orange', linestyle='--',
+                  label="95% CI")
+        ax.axvline(param_stats['ci_upper'], color='orange', linestyle='--')
         
         # True value if provided
         if true_params and param_name in true_params:
@@ -205,34 +208,38 @@ def main():
     }
     
     # Generate data with realistic noise
-    current = generate_synthetic_data(phi_ext, model_type=2, 
-                                    params=true_params, noise_level=0.025)
+    current, _ = generate_synthetic_data(phi_ext, Model2().function, 
+                                       true_params, noise_level=0.025)
     
     print(f"Generated synthetic data with {len(phi_ext)} points")
     
     # Create fitter
-    fitter = JosephsonFitter(verbose=True)
+    fitter = JosephsonTripleFitter(phi_ext, current)
     
     # Fit Model 2 (assuming we know this is the correct model)
     print("\nFitting Model 2...")
-    result = fitter.fit_model2(phi_ext, current)
+    result = fitter.fit_model('model2')
+    
+    if result is None:
+        print("Fitting failed!")
+        return
     
     # Residual analysis
     print("\n" + "="*50)
-    residual_fig = residual_analysis(result)
+    residual_analysis(result)
     
     # Bootstrap analysis
     print("\n" + "="*50)
-    bootstrap_stats = bootstrap_analysis(fitter, phi_ext, current, n_bootstrap=50)
+    bootstrap_statistics = bootstrap_analysis(phi_ext, current, n_bootstrap=50)
     
     print("\nBootstrap Parameter Statistics:")
     print("-" * 40)
-    for param_name, stats in bootstrap_stats.items():
-        print(f"{param_name:>6}: {stats['mean']:8.4f} ± {stats['std']:8.4f} "
-              f"[{stats['ci_lower']:7.4f}, {stats['ci_upper']:7.4f}]")
+    for param_name, param_stats in bootstrap_statistics.items():
+        print(f"{param_name:>6}: {param_stats['mean']:8.4f} ± {param_stats['std']:8.4f} "
+              f"[{param_stats['ci_lower']:7.4f}, {param_stats['ci_upper']:7.4f}]")
     
     # Plot parameter distributions
-    param_dist_fig = plot_parameter_distributions(bootstrap_stats, true_params)
+    plot_parameter_distributions(bootstrap_statistics, true_params)
     
     # Show all plots
     plt.show()

@@ -209,18 +209,16 @@ class JosephsonTripleFitter:
         JosephsonFitResult
             Comprehensive fitting results
         """
-        # Support model1, model2, model3, and custom Model4
-        if model_type not in ['model1', 'model2', 'model3', 'model4']:
+        if model_type not in ['model1', 'model2', 'model3']:
             raise ValueError(f"Unknown model type: {model_type}")
+        
+        # Convert model type string to integer for model functions
+        model_number_map = {'model1': 1, 'model2': 2, 'model3': 3}
+        model_number = model_number_map[model_type]
         
         # Ensure frequency analysis is done
         if self.frequency_analysis is None:
             self.analyze_frequency_content()
-        
-        # Convert model type string to integer for model functions
-        # Map model type string to model number
-        model_number_map = {'model1': 1, 'model2': 2, 'model3': 3, 'model4': 4}
-        model_number = model_number_map[model_type]
         
         # Get model function and lmfit model
         model_func = get_model(model_number)
@@ -229,7 +227,7 @@ class JosephsonTripleFitter:
         # Estimate initial parameters if not provided
         if custom_params is None:
             initial_params = estimate_initial_parameters(
-                self.phi_ext, self.current, self.frequency_analysis
+                self.phi_ext, self.current, self.frequency_analysis or {}
             )
         else:
             initial_params = custom_params
@@ -271,7 +269,7 @@ class JosephsonTripleFitter:
         param_bounds = {name: (param.min, param.max) for name, param in lmfit_result.params.items()}
         
         # Calculate fitted curve and residuals
-        fitted_curve = model_func.evaluate(self.phi_ext, params)
+        fitted_curve = model_func(self.phi_ext, **params)
         residuals = self.current - fitted_curve
         
         # Calculate R-squared
@@ -351,7 +349,7 @@ class JosephsonTripleFitter:
             parameter_correlations=param_correlations,
             confidence_intervals=confidence_intervals,
             physical_interpretation=physical_interpretation,
-            frequency_analysis=self.frequency_analysis,
+            frequency_analysis=self.frequency_analysis or {},
             fitted_curve=fitted_curve,
             residuals=residuals,
             prediction_intervals=prediction_intervals

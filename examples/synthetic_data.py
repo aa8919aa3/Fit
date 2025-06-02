@@ -8,7 +8,7 @@ for testing and validation purposes.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from josephson_fit import JosephsonFitter, generate_synthetic_data
+from josephson_fit import JosephsonTripleFitter, generate_synthetic_data, Model1, Model2
 
 
 def explore_parameter_effects():
@@ -28,8 +28,8 @@ def explore_parameter_effects():
     for ic in [1.0, 2.0, 3.0, 4.0]:
         params = base_params.copy()
         params['Ic'] = ic
-        current = generate_synthetic_data(phi_ext, model_type=1, 
-                                        params=params, noise_level=0.0)
+        current, _ = generate_synthetic_data(phi_ext, Model1().function, 
+                                           params, noise_level=0.0)
         ax1.plot(phi_ext, current, label=f'Ic = {ic}', linewidth=2)
     
     ax1.set_xlabel('Φ_ext')
@@ -44,8 +44,8 @@ def explore_parameter_effects():
         params = base_params.copy()
         params['T'] = t
         params['Ic'] = 2.0
-        current = generate_synthetic_data(phi_ext, model_type=1, 
-                                        params=params, noise_level=0.0)
+        current, _ = generate_synthetic_data(phi_ext, Model1().function, 
+                                           params, noise_level=0.0)
         ax2.plot(phi_ext, current, label=f'T = {t}', linewidth=2)
     
     ax2.set_xlabel('Φ_ext')
@@ -60,8 +60,8 @@ def explore_parameter_effects():
         params = base_params.copy()
         params['f'] = f
         params['Ic'] = 2.0
-        current = generate_synthetic_data(phi_ext, model_type=1, 
-                                        params=params, noise_level=0.0)
+        current, _ = generate_synthetic_data(phi_ext, Model1().function, 
+                                           params, noise_level=0.0)
         ax3.plot(phi_ext, current, label=f'f = {f}', linewidth=2)
     
     ax3.set_xlabel('Φ_ext')
@@ -76,8 +76,8 @@ def explore_parameter_effects():
         params = base_params.copy()
         params['phi0'] = phi0
         params['Ic'] = 2.0
-        current = generate_synthetic_data(phi_ext, model_type=1, 
-                                        params=params, noise_level=0.0)
+        current, _ = generate_synthetic_data(phi_ext, Model1().function, 
+                                           params, noise_level=0.0)
         ax4.plot(phi_ext, current, label=f'φ₀ = {phi0:.2f}', linewidth=2)
     
     ax4.set_xlabel('Φ_ext')
@@ -92,26 +92,26 @@ def explore_parameter_effects():
     params['Ic'] = 2.0
     
     # No background
-    current1 = generate_synthetic_data(phi_ext, model_type=1, 
-                                     params=params, noise_level=0.0)
+    current1, _ = generate_synthetic_data(phi_ext, Model1().function, 
+                                        params, noise_level=0.0)
     ax5.plot(phi_ext, current1, label='No background', linewidth=2)
     
     # Linear background
     params['r'] = 0.3
-    current2 = generate_synthetic_data(phi_ext, model_type=1, 
-                                     params=params, noise_level=0.0)
+    current2, _ = generate_synthetic_data(phi_ext, Model1().function, 
+                                        params, noise_level=0.0)
     ax5.plot(phi_ext, current2, label='Linear (r=0.3)', linewidth=2)
     
     # Quadratic background
     params['k'] = 0.1
-    current3 = generate_synthetic_data(phi_ext, model_type=1, 
-                                     params=params, noise_level=0.0)
+    current3, _ = generate_synthetic_data(phi_ext, Model1().function, 
+                                        params, noise_level=0.0)
     ax5.plot(phi_ext, current3, label='Quadratic (k=0.1)', linewidth=2)
     
     # Offset
     params['C'] = 0.5
-    current4 = generate_synthetic_data(phi_ext, model_type=1, 
-                                     params=params, noise_level=0.0)
+    current4, _ = generate_synthetic_data(phi_ext, Model1().function, 
+                                        params, noise_level=0.0)
     ax5.plot(phi_ext, current4, label='With offset (C=0.5)', linewidth=2)
     
     ax5.set_xlabel('Φ_ext')
@@ -127,10 +127,12 @@ def explore_parameter_effects():
         'k': 0.02, 'r': 0.0, 'C': 0.0
     }
     
-    for model_type in [1, 2, 3]:
-        current = generate_synthetic_data(phi_ext, model_type=model_type, 
-                                        params=params, noise_level=0.0)
-        ax6.plot(phi_ext, current, label=f'Model {model_type}', linewidth=2)
+    # Compare different models
+    model_funcs = [Model1().function, Model2().function]
+    for i, model_func in enumerate(model_funcs, 1):
+        current, _ = generate_synthetic_data(phi_ext, model_func, 
+                                           params, noise_level=0.0)
+        ax6.plot(phi_ext, current, label=f'Model {i}', linewidth=2)
     
     ax6.set_xlabel('Φ_ext')
     ax6.set_ylabel('Current')
@@ -157,8 +159,6 @@ def noise_level_study():
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
     axes = axes.flatten()
     
-    fitter = JosephsonFitter(verbose=False)
-    
     results_summary = []
     
     for i, noise_level in enumerate(noise_levels):
@@ -166,19 +166,23 @@ def noise_level_study():
             break
             
         # Generate data with noise
-        current = generate_synthetic_data(phi_ext, model_type=2, 
-                                        params=true_params, 
-                                        noise_level=noise_level)
+        current, _ = generate_synthetic_data(phi_ext, Model2().function, 
+                                           true_params, 
+                                           noise_level=noise_level)
         
         # Fit the data
         try:
-            result = fitter.fit_model2(phi_ext, current)
+            fitter = JosephsonTripleFitter(phi_ext, current)
+            result = fitter.fit_model('model2')
+            
+            if result is None:
+                continue
             
             # Plot
             ax = axes[i]
             ax.scatter(phi_ext, current, alpha=0.6, s=15, color='blue', 
                       label='Data')
-            ax.plot(phi_ext, result.fit_curve, 'red', linewidth=2, 
+            ax.plot(phi_ext, result.fitted_curve, 'red', linewidth=2, 
                    label='Fit')
             
             ax.set_xlabel('Φ_ext')
@@ -235,7 +239,7 @@ def main():
     print("=" * 60)
     
     print("\n1. Exploring Parameter Effects...")
-    param_fig = explore_parameter_effects()
+    explore_parameter_effects()
     
     print("\n2. Noise Level Study...")
     noise_fig, noise_results = noise_level_study()
@@ -249,24 +253,24 @@ def main():
         'Ic': 1.5, 'T': 0.2, 'f': 5.0, 'd': 0.0, 'phi0': 0.0,
         'k': 0.01, 'r': 0.0, 'C': 0.0
     }
-    current_hf = generate_synthetic_data(phi_ext_hf, model_type=1, 
-                                       params=hf_params, noise_level=0.015)
+    current_hf, _ = generate_synthetic_data(phi_ext_hf, Model1().function, 
+                                          hf_params, noise_level=0.015)
     
     # Low transparency (tunnel junction)
     lt_params = {
         'Ic': 3.0, 'T': 0.05, 'f': 1.0, 'd': 0.0, 'phi0': 0.0,
         'k': 0.0, 'r': 0.0, 'C': 0.0
     }
-    current_lt = generate_synthetic_data(phi_ext_hf, model_type=1, 
-                                       params=lt_params, noise_level=0.02)
+    current_lt, _ = generate_synthetic_data(phi_ext_hf, Model1().function, 
+                                          lt_params, noise_level=0.02)
     
     # High transparency (ballistic junction)  
     ht_params = {
         'Ic': 2.0, 'T': 0.85, 'f': 1.0, 'd': 0.0, 'phi0': 0.0,
         'k': 0.0, 'r': 0.0, 'C': 0.0
     }
-    current_ht = generate_synthetic_data(phi_ext_hf, model_type=1, 
-                                       params=ht_params, noise_level=0.02)
+    current_ht, _ = generate_synthetic_data(phi_ext_hf, Model1().function, 
+                                          ht_params, noise_level=0.02)
     
     # Plot application examples
     app_fig, app_axes = plt.subplots(1, 3, figsize=(18, 6))
